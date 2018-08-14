@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>PlayCanvas Hello Cube</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no' />
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        button {
+            padding: 10px 19px;
+            font-size: 20px;
+        }
+
+        #buttons-container {
+            margin-top: 50px;
+            text-align: center;
+        }
+    </style>
+    <div id="buttons-container">
+        <button id="btn-start">START</button>
+        <button id="btn-stop">STOP</button>
+    </div>
+    <script src='https://code.playcanvas.com/playcanvas-stable.min.js'></script>
+</head>
+<body>
+    <script>
+        var running = false;
+        var canvas = null;
+        var app = null;
+
+        var entities = [];
+        var CUBE_NB = 5000;
+
+        var testLoopTimeout = null;
+
+        function onResize() {
+            if (!app) {
+                return;
+            }
+
+            app.resizeCanvas();
+        }
+
+        function createApplication() {
+            canvas = document.createElement('canvas');
+            document.body.appendChild(canvas);
+
+            app = new pc.Application(canvas, { });
+            app.start();
+
+            // fill the available space at full resolution
+            app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
+            app.setCanvasResolution(pc.RESOLUTION_AUTO);
+
+            // ensure canvas is resized when window changes size
+            window.addEventListener('resize', onResize);
+        }
+
+        function createCubes() {
+            for (var i = 0; i < CUBE_NB; ++i) {
+                // create box entity
+                var position = new pc.Vec3(
+                    (i % 50) * 0.5,
+                    Math.floor(i / 50) * -0.5,
+                    0
+                );
+                var cube = new pc.Entity('cube');
+                cube.setLocalScale(0.1, 0.1, 0.1);
+                cube.setPosition(position);
+                cube.addComponent('model', {
+                    type: 'box'
+                });
+                entities.push(cube);
+                app.root.addChild(cube);
+            }
+        }
+
+        function initScene() {
+            createCubes();
+
+            // create camera entity
+            var camera = new pc.Entity('camera');
+            entities.push(camera);
+            camera.addComponent('camera', {
+                clearColor: new pc.Color(0.1, 0.1, 0.1)
+            });
+
+            // create directional light entity
+            var light = new pc.Entity('light');
+            entities.push(light);
+            light.addComponent('light');
+
+            // add to hierarchy
+            app.root.addChild(camera);
+            app.root.addChild(light);
+
+            // set up initial positions and orientations
+            camera.setPosition(0, 0, 5);
+            // camera.setEulerAngles(0, -45, 0);
+            light.setEulerAngles(45, 0, 0);
+        }
+
+        function destroyTexture(material, key) {
+            var texture = material[key];
+            if (texture !== null) {
+                console.log('Destroy texture', key);
+                texture.destroy();
+                material[key] = null;
+            }
+        }
+
+        function destroyScene() {
+            if (!app.root) {
+                return;
+            }
+
+            // Destroy manually entities
+            for (var i = 0; i < entities.length; ++i) {
+                var entity = entities[i];
+
+                if (!(entity.model && entity.model.model && entity.model.model.meshInstances)) {
+                    entity.destroy();
+                    continue;
+                }
+
+                var material = entity.model.model.meshInstances[0].material;
+                if (!material) {
+                    entity.destroy();
+                    continue;
+                }
+
+                // Destroy all maps
+                // (Just to make sure, but box model doesn't have textures)
+                destroyTexture(material, 'aoMap');
+                destroyTexture(material, 'diffuseMap');
+                destroyTexture(material, 'emissiveMap');
+                destroyTexture(material, 'glossMap');
+                destroyTexture(material, 'heightMap');
+                destroyTexture(material, 'lightMap');
+                destroyTexture(material, 'metalnessMap');
+                destroyTexture(material, 'normalMap');
+                destroyTexture(material, 'opacityMap');
+                destroyTexture(material, 'specularMap');
+                destroyTexture(material, 'sphereMap');
+
+                material.update();
+
+                entity.destroy();
+            }
+
+            app.root.destroy();
+            entities = [];
+        }
+
+        function loop() {
+            if (!running) {
+                return;
+            }
+
+            destroyScene();
+            initScene();
+
+            testLoopTimeout = setTimeout(loop, 2000);
+        }
+
+        function startTest() {
+            if (running) {
+                return;
+            }
+
+            running = true;
+
+            if (!app) {
+                createApplication();
+            }
+
+            loop();
+        }
+
+        function stopTest() {
+            if (testLoopTimeout) {
+                clearTimeout(testLoopTimeout);
+                testLoopTimeout = null;
+            }
+
+            running = false;
+        }
+
+        var btnStart = document.getElementById('btn-start');
+        var btnStop = document.getElementById('btn-stop');
+        btnStart.addEventListener('click', startTest);
+        btnStop.addEventListener('click', stopTest);
+
+    </script>
+</body>
+</html>
